@@ -2,6 +2,7 @@
 """
 Owner Statement Generator - Abacus.AI Project
 Main Streamlit application for automated owner statement generation
+Fixed version with minimal dependencies
 """
 
 import streamlit as st
@@ -11,9 +12,6 @@ import os
 import sys
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import logging
 
 # Configure logging
@@ -67,6 +65,11 @@ st.markdown("""
     }
     .stSelectbox > div > div > select {
         background-color: white;
+    }
+    .big-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #1f77b4;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -348,7 +351,7 @@ def render_dashboard():
     
     st.markdown("---")
     
-    # Sample financial breakdown visualization
+    # Sample financial breakdown
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -359,28 +362,26 @@ def render_dashboard():
         processed_data = st.session_state.processor.process_reservations_data(sample_reservations, "480 Laswell Ave")
         breakdown = st.session_state.processor.create_statement_breakdown(processed_data)
         
-        # Create waterfall chart
-        categories = [item['line_item'] for item in breakdown]
-        amounts = [item['amount'] for item in breakdown]
+        # Create simple bar chart using Streamlit
+        chart_data = pd.DataFrame({
+            'Item': [item['line_item'] for item in breakdown],
+            'Amount': [item['amount'] for item in breakdown]
+        })
         
-        fig = go.Figure(go.Waterfall(
-            name="Financial Flow",
-            orientation="v",
-            measure=["absolute", "relative", "relative", "relative", "total"],
-            x=categories,
-            textposition="outside",
-            text=[f"${x:,.2f}" for x in amounts],
-            y=amounts,
-            connector={"line": {"color": "rgb(63, 63, 63)"}},
-        ))
+        st.bar_chart(chart_data.set_index('Item'))
         
-        fig.update_layout(
-            title="Sample Owner Statement Breakdown",
-            showlegend=False,
-            height=400
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        # Display breakdown table
+        st.subheader("Financial Details")
+        breakdown_df = pd.DataFrame([
+            {
+                'Line Item': item['line_item'],
+                'Amount': f"${item['amount']:,.2f}",
+                'Type': item['type'].title(),
+                'Payout To': item['payout_to']
+            }
+            for item in breakdown
+        ])
+        st.dataframe(breakdown_df, use_container_width=True)
     
     with col2:
         st.subheader("🎯 Quick Actions")
@@ -404,6 +405,15 @@ def render_dashboard():
         st.success("✅ Google Sheets: Ready")
         st.info("ℹ️ RelayFi: Demo Mode")
         st.success("✅ Calculations: Active")
+        
+        # Sample metrics
+        st.markdown("---")
+        st.subheader("📈 Sample Metrics")
+        st.markdown(f'<div class="big-number">${processed_data["reservation_income"]:,.0f}</div>', unsafe_allow_html=True)
+        st.write("Total Revenue")
+        
+        st.markdown(f'<div class="big-number">${processed_data["owner_payout"]:,.0f}</div>', unsafe_allow_html=True)
+        st.write("Owner Payout")
 
 def render_generate_statement():
     """Render the statement generation page"""
@@ -603,6 +613,13 @@ def display_statement_results(result: Dict[str, Any]):
     
     df_breakdown = pd.DataFrame(breakdown_data)
     st.dataframe(df_breakdown, use_container_width=True)
+    
+    # Visual breakdown using Streamlit chart
+    chart_data = pd.DataFrame({
+        'Item': [item['line_item'] for item in result['breakdown']],
+        'Amount': [item['amount'] for item in result['breakdown']]
+    })
+    st.bar_chart(chart_data.set_index('Item'))
     
     # Bank verification details
     st.subheader("🏦 Bank Verification")
@@ -891,21 +908,13 @@ def render_reports():
     
     # Create sample monthly data
     months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-    revenue = [4200, 3800, 4500, 4100, 4800, 4300]
-    management_fees = [r * 0.2 for r in revenue]
+    revenue_data = pd.DataFrame({
+        'Month': months,
+        'Revenue': [4200, 3800, 4500, 4100, 4800, 4300],
+        'Management Fees': [840, 760, 900, 820, 960, 860]
+    })
     
-    fig = go.Figure()
-    fig.add_trace(go.Bar(name='Revenue', x=months, y=revenue))
-    fig.add_trace(go.Bar(name='Management Fees', x=months, y=management_fees))
-    
-    fig.update_layout(
-        title='Monthly Revenue and Management Fees',
-        xaxis_title='Month',
-        yaxis_title='Amount ($)',
-        barmode='group'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    st.line_chart(revenue_data.set_index('Month'))
     
     # Sample report list
     st.subheader("📄 Sample Reports")
